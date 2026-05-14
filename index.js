@@ -12,7 +12,7 @@ document.getElementById("find-restaurants").addEventListener('click', () => {
 });
 
 const fetchLocationCoordinates = (location) => {
-    const nominatimEndpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${location}`;
+    const nominatimEndpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`;
     fetch(nominatimEndpoint)
         .then(response => response.json())
         .then(data => {
@@ -34,39 +34,79 @@ const showRestaurantByPosition = (position) => {
     fetchRestaurants(latitude, longitude);
 };
 
-const fetchRestaurants = (latitude, longitude) => {
-    const overpassEndpoint = `https://overpass-api.de/api/interpreter?data=[out:json];node[amenity=restaurant](around:5000,${latitude},${longitude});out;`;
-    fetch(overpassEndpoint)
-        .then(response => response.json())
-        .then(data => {
-            const restaurants = data.elements;
-            const restaurantsContainer = document.getElementById("restaurants");
-            restaurantsContainer.innerHTML = "";
+const fetchRestaurants = async (latitude, longitude) => {
 
-            if (restaurants.length === 0) {
-                restaurantsContainer.innerHTML = '<p>No restaurants found nearby.</p>';
-                return;
-            }
+    const query = `
+        [out:json];
+        node[amenity=restaurant](around:5000,${latitude},${longitude});
+        out;
+    `;
 
-            restaurants.forEach(restaurant => {
-                const card = document.createElement("div");
-                card.className = 'restaurant-card';
+    const overpassEndpoint =
+        `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
-                card.innerHTML = `
-                    <a href="https://www.openstreetmap.org/?mlat=${restaurant.lat}&mlon=${restaurant.lon}" 
-                       target="_blank" rel="noopener noreferrer">
-                        <h2>${restaurant.tags?.name || 'Unnamed Restaurant'}</h2>
-                    </a>
-                    <p>${restaurant.tags?.cuisine || "Cuisine not specified"}</p>
-                    <p>Lat: ${restaurant.lat}, Lon: ${restaurant.lon}</p>
-                `;
+    const restaurantsContainer = document.getElementById("restaurants");
 
-                restaurantsContainer.appendChild(card);
-            });
-        })
-        .catch(error => {
-            console.log("Error fetching from Overpass API:", error);
+    restaurantsContainer.innerHTML = "<p>Loading restaurants...</p>";
+
+    try {
+
+        const response = await fetch(overpassEndpoint);
+
+        if (!response.ok) {
+            throw new Error("Failed to fetch restaurant data");
+        }
+
+        const data = await response.json();
+
+        const restaurants = data.elements;
+
+        restaurantsContainer.innerHTML = "";
+
+        if (!restaurants || restaurants.length === 0) {
+            restaurantsContainer.innerHTML =
+                "<p>No restaurants found nearby.</p>";
+            return;
+        }
+
+        restaurants.forEach((restaurant) => {
+
+            const card = document.createElement("div");
+            card.className = "restaurant-card";
+
+            const name =
+                restaurant.tags?.name || "Unnamed Restaurant";
+
+            const cuisine =
+                restaurant.tags?.cuisine || "Cuisine not specified";
+
+            card.innerHTML = `
+                <a href="https://www.openstreetmap.org/?mlat=${restaurant.lat}&mlon=${restaurant.lon}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+
+                    <h2>${name}</h2>
+                </a>
+
+                <p><strong>Cuisine:</strong> ${cuisine}</p>
+
+                <p>
+                    <strong>Coordinates:</strong>
+                    ${restaurant.lat}, ${restaurant.lon}
+                </p>
+            `;
+
+            restaurantsContainer.appendChild(card);
         });
+
+    } catch (error) {
+
+        console.error("Error fetching restaurants:", error);
+
+        restaurantsContainer.innerHTML = `
+            <p>Failed to load nearby restaurants.</p>
+        `;
+    }
 };
 
 const showError = (error) => {
