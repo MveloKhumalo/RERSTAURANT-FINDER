@@ -11,6 +11,19 @@ document.getElementById("find-restaurants").addEventListener('click', () => {
     }
 });
 
+const getRes = () => {
+        const location = document.getElementById("search-input").value.trim();
+    if (location) {
+        fetchLocationCoordinates(location);
+    }
+    else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showRestaurantByPosition, showError);
+    }
+    else {
+        alert('Geolocation is not supported by the browser!');
+    }
+};
+
 const fetchLocationCoordinates = (location) => {
     const nominatimEndpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`;
     fetch(nominatimEndpoint)
